@@ -1,6 +1,4 @@
--- =============================================
--- AUDITORÍA ADICIONAL - Precios y protección
--- =============================================
+
 
 USE inmobiliaria_db;
 
@@ -78,10 +76,6 @@ LEFT JOIN Contrato con ON p.id_propiedad = con.id_propiedad
                       AND con.estado = 'Activo'
 LEFT JOIN Agente a ON con.id_agente = a.id_agente;
 
--- =============================================
--- CONSULTA FINAL: Últimas 10 modificaciones de precio
--- =============================================
--- (Ejecuta esto después de probar los triggers)
 SELECT * 
 FROM auditoria_precios 
 ORDER BY fecha_cambio DESC 
