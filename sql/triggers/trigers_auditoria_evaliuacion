@@ -1,0 +1,25 @@
+user inmobiliaria_db;
+
+-- 1. tabla de auditoria de precios 
+create table if not EXISTS auditoria_precios (
+    id_auditoria INT AUTO_INCREMENT PRIMARY KEY,
+    id_propiedad INT NOT NULL,
+    precio_anterior ENUM DECIMAL(15,2) DEFAULT NULL,,
+    precio_nuevo ENUM DECIMAL(15,2) DEFAULT NULL,,
+    fecha_cambio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    usuario VARCHAR(100) DEFAULT USER(),
+    FOREIGN KEY (id_propiedad) REFERENCES Propiedad(id_propiedad)
+);
+
+-- 2. Trigger: Registrar cambio de precio
+DELIMITER //
+CREATE TRIGGER trg_propiedad_cambio_precio
+after update on Propiedad
+for EACH ROW
+BEGIN
+    if OLD.precio_venta != NEW.precio_venta THEN
+        INSERT INTO auditoria_precios (id_propiedad, precio_anterior, precio_nuevo)
+        VALUES (OLD.id_propiedad, OLD.precio_venta, NEW.precio_venta)
+    END IF;
+END //
+DELIMITER
