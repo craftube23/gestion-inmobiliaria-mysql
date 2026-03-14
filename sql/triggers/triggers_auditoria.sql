@@ -23,6 +23,7 @@ BEGIN
 END //
 DELIMITER ;
 
+
 -- Tabla de auditoría para nuevos contratos
 CREATE TABLE IF NOT EXISTS Auditoria_Contrato (
     id_auditoria INT AUTO_INCREMENT PRIMARY KEY,

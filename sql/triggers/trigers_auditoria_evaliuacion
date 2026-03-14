@@ -1,0 +1,82 @@
+
+
+USE inmobiliaria_db;
+
+-- 1. Tabla de auditoría de precios
+CREATE TABLE IF NOT EXISTS auditoria_precios (
+    id_auditoria INT AUTO_INCREMENT PRIMARY KEY,
+    id_propiedad INT NOT NULL,
+    precio_anterior DECIMAL(15,2),
+    precio_nuevo DECIMAL(15,2),
+    fecha_cambio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    usuario VARCHAR(100) DEFAULT USER(),
+    FOREIGN KEY (id_propiedad) REFERENCES Propiedad(id_propiedad) ON DELETE CASCADE
+);
+
+-- =============================================
+-- TRIGGER 1: Auditoría de cambio de precio
+-- =============================================
+DELIMITER //
+CREATE TRIGGER trg_auditoria_precio
+AFTER UPDATE ON Propiedad
+FOR EACH ROW
+BEGIN
+    -- Registra cambio si el precio de venta o alquiler cambió
+    IF OLD.precio_venta != NEW.precio_venta OR OLD.precio_alquiler_mensual != NEW.precio_alquiler_mensual THEN
+        INSERT INTO auditoria_precios (id_propiedad, precio_anterior, precio_nuevo)
+        VALUES (
+            OLD.id_propiedad,
+            COALESCE(OLD.precio_venta, OLD.precio_alquiler_mensual),
+            COALESCE(NEW.precio_venta, NEW.precio_alquiler_mensual)
+        );
+    END IF;
+END //
+DELIMITER ;
+
+-- =============================================
+-- TRIGGER 2: Evitar eliminar propiedad con contrato activo
+-- =============================================
+DELIMITER //
+CREATE TRIGGER trg_evitar_eliminar_propiedad
+BEFORE DELETE ON Propiedad
+FOR EACH ROW
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM Contrato 
+        WHERE id_propiedad = OLD.id_propiedad 
+          AND estado = 'Activo'
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'ERROR: No se puede eliminar una propiedad que tiene contrato activo.';
+    END IF;
+END //
+DELIMITER ;
+
+-- =============================================
+-- VISTA: Resumen de propiedades (como pidió la empresa)
+-- =============================================
+CREATE OR REPLACE VIEW vista_resumen_propiedades AS
+SELECT 
+    p.direccion AS nombre_propiedad,
+    p.ciudad,
+    p.estado,
+    COALESCE(p.precio_venta, p.precio_alquiler_mensual) AS precio,
+    CONCAT(a.nombre, ' ', a.apellido) AS nombre_agente,
+    CASE 
+        WHEN p.estado = 'Arrendada' 
+             OR EXISTS (SELECT 1 FROM Contrato c 
+                        WHERE c.id_propiedad = p.id_propiedad 
+                          AND c.estado = 'Activo') 
+        THEN 'Sí' 
+        ELSE 'No' 
+    END AS esta_alquilada
+FROM Propiedad p
+LEFT JOIN Contrato con ON p.id_propiedad = con.id_propiedad 
+                      AND con.estado = 'Activo'
+LEFT JOIN Agente a ON con.id_agente = a.id_agente;
+
+SELECT * 
+FROM auditoria_precios 
+ORDER BY fecha_cambio DESC 
+LIMIT 10;
